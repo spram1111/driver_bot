@@ -141,7 +141,11 @@ async def reset(update: Update, context):
     chat_id = update.callback_query.message.chat_id
 
     await update.callback_query.answer()
-    context.user_data.clear()
+    # context.user_data.clear()
+    cursor.execute(
+        'DELETE FROM drivers'
+    )
+    conn.commit()
     await update.callback_query.edit_message_text(
         text="Счетчики сброшены.",
         reply_markup=reply_markup)
@@ -166,7 +170,10 @@ async def add_driver_callback(update: Update, context):
         )
         return ADD_DRIVER
 
-    cursor.execute('INSERT INTO drivers (driver_name, seats) VALUES (?, ?)', (driver_name, int(seats)))
+    cursor.execute(
+        'INSERT INTO drivers (driver_name, seats) VALUES (?, ?)',
+        (driver_name, int(seats))
+    )
     conn.commit()
 
     await update.message.reply_text(
@@ -180,38 +187,31 @@ async def add_driver_callback(update: Update, context):
 
 async def select_driver_callback(update: Update, context):
     """Обработчик выбора водителя."""
-    passengers = context.user_data.get('passengers', {})
+    # passengers = context.user_data.get('passengers', {})
     driver = update.callback_query.data
-    # drivers = context.user_data.get('drivers', {})
-    # if driver in drivers:
-    #     seats = drivers[driver]
-    cursor.execute('SELECT driver_name, seats FROM drivers WHERE driver_name = ?', (driver,))
+
+    cursor.execute(
+        'SELECT driver_name, seats FROM drivers WHERE driver_name = ?',
+        (driver,)
+    )
     result = cursor.fetchone()
     if result:
         driver_name, seats = result
         if seats > 0:
             seats -= 1
-            cursor.execute('UPDATE drivers SET seats = ? WHERE driver_name = ?', (seats, driver_name))
-            conn.commit()
-            passengers[driver_name] = passengers.get(driver_name, []) + [update.callback_query.from_user.username]
-            await update.callback_query.edit_message_text(
-                text=f"Вы выбрали водителя {driver_name}."
-                f"Осталось {seats} мест.\n\n"
-                f"Список пассажиров:\n" + '\n'.join(f"- {passenger} ({seats - i} мест)" for i, passenger in enumerate(passengers[driver_name], 1)),
-                reply_markup=reply_markup
+            cursor.execute(
+                'UPDATE drivers SET seats = ? WHERE driver_name = ?',
+                (seats, driver_name)
             )
-        # if result:
-        #     driver_name, seats = result  
-        #     if seats > 0:
-        #         seats -= 1
-        #         context.user_data['drivers'] = drivers
-        #         passengers[driver] = passengers.get(driver, []) + [update.callback_query.from_user.username]
-        #         await update.callback_query.edit_message_text(
-        #             text=f"Вы выбрали водителя {driver}."
-        #             f"Осталось {seats - 1} мест.\n\n"
-        #             f"Список пассажиров:\n" + '\n'.join(f"- {passenger} ({seats - i} мест)" for i, passenger in enumerate(passengers[driver], 1)),
-        #             reply_markup=reply_markup
-        #         )
+            conn.commit()
+            # passengers[driver_name] = passengers.get(driver_name, []) + [update.callback_query.from_user.username]
+            # await update.callback_query.edit_message_text(
+            #     text=f"Вы выбрали водителя {driver_name}."
+            #     f"Осталось {seats} мест.\n\n"
+            #     f"Список пассажиров:\n" + '\n'.join(f"- {passenger} ({seats - i} мест)" for i, passenger in enumerate(passengers[driver_name], 1)),
+            #     reply_markup=reply_markup
+            # )
+
         else:
             await update.callback_query.edit_message_text(
                 text="Извините, все места в автомобиле заняты.",
